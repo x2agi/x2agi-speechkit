@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package speechkit.lang_detect;
+
+import "google/api/annotations.proto";
+
+service LangDetector {
+    // Synchronous audio language detection
+    rpc DetectFromAudio (AudioLangDetectRequest) returns (LangDetectResponse) {
+        option (google.api.http) = { post: "/detectFromAudio"};
+    }
+}
+
+message AudioLangDetectRequest {
+    bytes audio_data = 1;            // Raw audio bytes (WAV, mono, 16kHz, 16-bit PCM including header)
+    repeated string allowed_languages = 2;  // ISO 639-1 codes (empty = no restriction)
+}
+
+message LangDetectResponse {
+    // Results filtered by allowed_languages constraint
+    string allowed_language = 1;       // ISO 639-1 code - Best match from allowed_languages list (empty if none match)
+    float allowed_language_confidence = 2;  // Confidence score for the allowed match
+    
+    // Results from full language set (unconstrained)
+    string detected_language = 3;      // ISO 639-1 code - Best match across all supported languages
+    float detected_language_confidence = 4;  // Confidence score for unconstrained detection
+}

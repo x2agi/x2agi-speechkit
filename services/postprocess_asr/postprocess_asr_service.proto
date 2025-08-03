@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package speechkit.postprocess_asr;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "yandex/cloud/validation.proto";
+import "yandex/cloud/api/operation.proto";
+import "yandex/cloud/operation/operation.proto";
+
+message GetRecognitionRequest {
+    string operation_id = 1 [(yandex.cloud.required) = true, (yandex.cloud.length) = "<=50"];
+}
+
+message GetProgressRequest {
+    string operation_id = 1 [(yandex.cloud.required) = true, (yandex.cloud.length) = "<=50"];
+}
+
+message ProgressResponse {
+    string operation_id = 1;
+    string status = 2; // e.g., "pending", "processing", "completed", "failed"
+    int32 progress = 3; // Number of generated tokens
+    string error = 4; // Optional: Error message if status is "failed"
+}
+
+message PostprocessAsrRequest {
+    // usually consists of multiple lines with timestamps and speaker labels
+    string speakers = 1;
+
+    // usually consists of multiple lines with timestamps and utterances (without punctuation or capitalization)
+    // number of lines in speakers and utterances should match
+    string utterances = 2;
+
+    // minimum pause (sec) to keep separate adjacent utterances for same speaker, otherwise they will be merged
+    // default value (for float) is 0.0 - this will keep everything separate as it is
+    float min_pause_to_separate = 3;
+
+    // if true all utterances will be considered to belong to single speaker, default is false
+    bool as_monologue = 4;
+
+    // REQUIRED. Currently supported: "en", "ru"
+    string language = 5;
+
+}
+
+message PostprocessAsrResponse {
+    // Session identifier
+    string operation_id = 1;
+
+    // Wall clock on server side. This is time when server wrote results to stream
+    int64 response_wall_time_ms = 2;
+
+    // same field as in PostprocessAsrRequest, but some lines could be merged
+    string speakers = 3;
+    
+    // same field as in PostprocessAsrRequest, but some lines could be merged
+    // the text of utterances is normalized, capitalized and punctuated
+    // number of lines in speakers and utterances should match
+    string utterances = 4;
+}
+
+message DeleteRecognitionRequest {
+    string operation_id = 1;
+}
+
+service AsyncAsrPostprocessor {
+
+    rpc PostprocessAsr(PostprocessAsrRequest) returns (yandex.cloud.operation.Operation) {
+        option (yandex.cloud.api.operation) = {
+            response: "google.protobuf.Empty"
+        };
+        option (google.api.http) = {
+            post: "/postprocessAsrAsync"
+            body: "*"
+        };
+    }
+
+    rpc GetRecognition(GetRecognitionRequest) returns (PostprocessAsrResponse) {
+        option (google.api.http) = { 
+            get: "/getRecognition"
+        };
+    }
+
+    rpc GetProgress(GetProgressRequest) returns (ProgressResponse) {
+        option (google.api.http) = { 
+            get: "/getProgress"
+        };
+    }
+
+    rpc DeleteRecognition(DeleteRecognitionRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = { 
+            get: "/deleteRecognition"
+        };
+    }
+
+}

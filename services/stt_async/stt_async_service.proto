@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package speechkit.stt_async;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "yandex/cloud/validation.proto";
+import "yandex/cloud/api/operation.proto";
+import "yandex/cloud/operation/operation.proto";
+
+message OracleSpeakerLabel {
+    // Raw audio bytes (WAV, mono, 16kHz, 16-bit PCM including header)
+    bytes audio_data = 1;
+
+    // Custom speaker label.
+    string speaker_label = 2;
+}
+
+message RecognitionOptions {
+    // List of examples of speech fragments and oracle speaker labels. OPTIONAL. Other predicted labels will be like "Speaker 1", "Speaker 2" and so on.
+    repeated OracleSpeakerLabel oracle_speaker_labels = 1;
+
+    // If true, only oracle speaker label can be predicted. Default is false. 
+    bool restrict_to_oracle_speaker_labels = 2;
+
+    // Custom recognition options packed in a json string
+    string custom_options = 3;
+}
+
+message RecognizeFileRequest {
+
+    // Raw audio bytes (WAV, mono, 16kHz, 16-bit PCM including header)
+    bytes audio_data = 1;
+
+    // List of examples of speech fragments and oracle speaker labels. OPTIONAL. Other predicted labels will be like "Speaker 1", "Speaker 2" and so on.
+    repeated OracleSpeakerLabel oracle_speaker_labels = 2;
+
+    // If true, only oracle speaker label can be predicted. Default is false. 
+    bool restrict_to_oracle_speaker_labels = 3;
+
+    // Custom recognition options packed in a json string
+    string custom_options = 4;
+
+}
+
+message RecognizeFileStreamingRequest {
+    oneof Event {
+        // Session options. Should be the first message from user.
+        RecognitionOptions options = 1;
+
+        // Chunk with audio data.
+        // Raw audio bytes (WAV, mono, 16kHz, 16-bit PCM including header if first chunk)
+        bytes audio_data = 2;
+    }
+}
+
+message DiarizationResult {
+    // The start time of the segment in seconds.
+    int64 start_time_ms = 1;
+
+    // The end time of the segment in seconds.
+    int64 end_time_ms = 2;
+
+    // The speaker label (e.g., "Speaker 1", "Speaker 2").
+    string speaker_label = 3;
+
+    // Transcription result for this segment
+    string transcript = 4;
+
+}
+
+message StreamingResponse {
+
+    // Session identifier
+    string operation_id = 1;
+
+    // Wall clock on server side. This is time when server wrote results to stream
+    int64 response_wall_time_ms = 2;
+
+    // List of diarization results for the streamed audio.
+    repeated DiarizationResult results = 3;
+
+}
+
+message DeleteRecognitionRequest {
+    string operation_id = 1;
+}
+
+message GetRecognitionRequest {
+    string operation_id = 1 [(yandex.cloud.required) = true, (yandex.cloud.length) = "<=50"];
+}
+
+message GetProgressRequest {
+    string operation_id = 1 [(yandex.cloud.required) = true, (yandex.cloud.length) = "<=50"];
+}
+
+message ProgressResponse {
+    string operation_id = 1;
+    string status = 2; // e.g., "pending", "processing", "completed", "failed"
+    int32 progress = 3; // Number of generated tokens
+    string error = 4; // Optional: Error message if status is "failed"
+}
+
+// A set of methods for async voice recognition.
+service AsyncRecognizer {
+
+    rpc RecognizeFile (RecognizeFileRequest) returns (yandex.cloud.operation.Operation) {
+        // asynchronous operation does not return any meaningful data upon completion.
+        option (yandex.cloud.api.operation) = {
+            response: "google.protobuf.Empty"
+        };
+        option (google.api.http) = {
+            post: "/recognizeFileAsync"
+            body: "*"
+        };
+    }
+
+    rpc RecognizeFileStreaming (stream RecognizeFileStreamingRequest) returns (yandex.cloud.operation.Operation) {
+        // asynchronous operation does not return any meaningful data upon completion.
+        option (yandex.cloud.api.operation) = {
+            response: "google.protobuf.Empty"
+        };
+        option (google.api.http) = {
+            post: "/recognizeFileStreamingAsync"
+            body: "*"
+        };
+
+    }
+
+    rpc GetRecognition (GetRecognitionRequest) returns (stream StreamingResponse) {
+        option (google.api.http) = { 
+            get: "/getRecognition"
+        };
+    }
+
+    rpc GetProgress (GetProgressRequest) returns (ProgressResponse) {
+        option (google.api.http) = { 
+            get: "/getProgress"
+        };
+    }
+
+    rpc DeleteRecognition (DeleteRecognitionRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = { 
+            get: "/deleteRecognition"
+        };
+    }
+
+}
